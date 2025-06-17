@@ -849,22 +849,24 @@
         }).format(amount);
     }
 
-    function parseCurrency(amount) {
-        if (typeof amount === 'number') return amount;
-        return parseFloat(amount.replace(/[^0-9.-]+/g, '')) || 0;
+    function parseShopeeCurrency(amount) {
+        let num = parseFloat((amount + '').replace(/[^0-9.,-]+/g, '').replace(',', '.')) || 0;
+        // If less than 1000 and not zero, treat as thousands
+        if (num > 0 && num < 1000) num *= 1000;
+        return num;
     }
 
     function updateStats() {
         const filteredData = getFilteredData();
         const total = filteredData.reduce((sum, order) => {
             return sum + order.items.reduce((itemSum, item) => {
-                return itemSum + parseCurrency(item.totalPesanan);
+                return itemSum + parseShopeeCurrency(item.totalPesanan);
             }, 0);
         }, 0);
 
         const savings = filteredData.reduce((sum, order) => {
             return sum + order.items.reduce((itemSum, item) => {
-                return itemSum + parseCurrency(item.diskonPengiriman) + parseCurrency(item.voucherShopee);
+                return itemSum + parseShopeeCurrency(item.diskonPengiriman) + parseShopeeCurrency(item.voucherShopee);
             }, 0);
         }, 0);
 
@@ -879,7 +881,7 @@
         const filteredData = getFilteredData();
         const grandTotal = filteredData.reduce((sum, order) => {
             return sum + order.items.reduce((itemSum, item) => {
-                return itemSum + parseCurrency(item.totalPesanan);
+                return itemSum + parseShopeeCurrency(item.totalPesanan);
             }, 0);
         }, 0);
         if (grandTotalValue) {
@@ -913,9 +915,9 @@
                         case CONFIG.FILTER_TYPES.EQUALS:
                             return value.toLowerCase() === filter.value.toLowerCase();
                         case CONFIG.FILTER_TYPES.GREATER_THAN:
-                            return parseCurrency(value) > parseCurrency(filter.value);
+                            return parseShopeeCurrency(value) > parseShopeeCurrency(filter.value);
                         case CONFIG.FILTER_TYPES.LESS_THAN:
-                            return parseCurrency(value) < parseCurrency(filter.value);
+                            return parseShopeeCurrency(value) < parseShopeeCurrency(filter.value);
                         default:
                             return true;
                     }
@@ -930,8 +932,8 @@
                 const bValue = b.items[0]?.[currentSort.column] || b[currentSort.column];
 
                 if (typeof aValue === 'number' || typeof bValue === 'number') {
-                    const aNum = parseCurrency(aValue);
-                    const bNum = parseCurrency(bValue);
+                    const aNum = parseShopeeCurrency(aValue);
+                    const bNum = parseShopeeCurrency(bValue);
                     return currentSort.direction === CONFIG.SORT_DIRECTIONS.ASC ? aNum - bNum : bNum - aNum;
                 }
 
@@ -956,10 +958,10 @@
                     <td>${order['Order Date']}</td>
                     <td>${item.name}</td>
                     <td class="price">${item.subtotalProduk || '-'}</td>
-                    <td class="price">${item.subtotalPengiriman || '-'}</td>
-                    <td class="price negative">${item.diskonPengiriman || '-'}</td>
+                    <td class="price">${formatCurrency(parseShopeeCurrency(item.subtotalPengiriman)) || '-'}</td>
+                    <td class="price negative">${formatCurrency(parseShopeeCurrency(item.diskonPengiriman)) || '-'}</td>
                     <td class="price negative">${item.voucherShopee || '-'}</td>
-                    <td class="price">${item.biayaLayanan || '-'}</td>
+                    <td class="price">${formatCurrency(parseShopeeCurrency(item.biayaLayanan)) || '-'}</td>
                     <td class="price total">${item.totalPesanan || '-'}</td>
                     <td><a href="${order.URL}" target="_blank">${order.URL}</a></td>
                 `;
@@ -1032,19 +1034,19 @@
         // Calculate total subtotalProduk for proportional allocation
         let totalSubtotalProduk = 0;
         result.items.forEach(item => {
-            totalSubtotalProduk += parseCurrency(item.subtotalProduk);
+            totalSubtotalProduk += parseShopeeCurrency(item.subtotalProduk);
         });
 
         // Parse order-level costs (raw numbers)
-        const orderShipping = parseCurrency(result.items[0].subtotalPengiriman);
-        const orderDiskon = parseCurrency(result.items[0].diskonPengiriman);
-        const orderVoucher = parseCurrency(result.items[0].voucherShopee);
-        const orderFee = parseCurrency(result.items[0].biayaLayanan);
-        const orderTotal = parseCurrency(result.items[0].totalPesanan);
+        const orderShipping = parseShopeeCurrency(result.items[0].subtotalPengiriman);
+        const orderDiskon = parseShopeeCurrency(result.items[0].diskonPengiriman);
+        const orderVoucher = parseShopeeCurrency(result.items[0].voucherShopee);
+        const orderFee = parseShopeeCurrency(result.items[0].biayaLayanan);
+        const orderTotal = parseShopeeCurrency(result.items[0].totalPesanan);
 
         // Allocate costs proportionally (keep as numbers)
         result.items.forEach(item => {
-            const prop = totalSubtotalProduk > 0 ? parseCurrency(item.subtotalProduk) / totalSubtotalProduk : 1 / result.items.length;
+            const prop = totalSubtotalProduk > 0 ? parseShopeeCurrency(item.subtotalProduk) / totalSubtotalProduk : 1 / result.items.length;
             item._allocatedSubtotalPengiriman = orderShipping * prop;
             item._allocatedDiskonPengiriman = orderDiskon * prop;
             item._allocatedVoucherShopee = orderVoucher * prop;
@@ -1059,12 +1061,12 @@
                 <td>${result.Shop}</td>
                 <td>${result['Order Date']}</td>
                 <td>${item.name}</td>
-                <td class="price">${item.subtotalProduk || '-'}</td>
-                <td class="price">${formatCurrency(item._allocatedSubtotalPengiriman)}</td>
-                <td class="price negative">${formatCurrency(item._allocatedDiskonPengiriman)}</td>
-                <td class="price negative">${formatCurrency(item._allocatedVoucherShopee)}</td>
-                <td class="price">${formatCurrency(item._allocatedBiayaLayanan)}</td>
-                <td class="price total">${formatCurrency(item._allocatedTotalPesanan)}</td>
+                <td class="price">${formatCurrency(parseShopeeCurrency(item.subtotalProduk)) || '-'}</td>
+                <td class="price">${formatCurrency(parseShopeeCurrency(item._allocatedSubtotalPengiriman)) || '-'}</td>
+                <td class="price negative">${formatCurrency(parseShopeeCurrency(item._allocatedDiskonPengiriman)) || '-'}</td>
+                <td class="price negative">${formatCurrency(parseShopeeCurrency(item._allocatedVoucherShopee)) || '-'}</td>
+                <td class="price">${formatCurrency(parseShopeeCurrency(item._allocatedBiayaLayanan)) || '-'}</td>
+                <td class="price total">${formatCurrency(parseShopeeCurrency(item._allocatedTotalPesanan)) || '-'}</td>
                 <td><a href="${result.URL}" target="_blank">${result.URL}</a></td>
             `;
             resultsBody.appendChild(row);
@@ -1077,6 +1079,7 @@
             item.voucherShopee = item._allocatedVoucherShopee;
             item.biayaLayanan = item._allocatedBiayaLayanan;
             item.totalPesanan = item._allocatedTotalPesanan;
+            item.subtotalProduk = parseShopeeCurrency(item.subtotalProduk);
         });
 
         parsedData.push(result);
@@ -1122,15 +1125,15 @@
                     order.Shop,
                     order['Order Date'],
                     item.name,
-                    item.subtotalProduk || '-',
-                    formatCurrency(item.subtotalPengiriman),
-                    formatCurrency(item.diskonPengiriman),
-                    formatCurrency(item.voucherShopee),
-                    formatCurrency(item.biayaLayanan),
-                    formatCurrency(item.totalPesanan),
+                    formatCurrency(parseShopeeCurrency(item.subtotalProduk)),
+                    formatCurrency(parseShopeeCurrency(item.subtotalPengiriman)),
+                    formatCurrency(parseShopeeCurrency(item.diskonPengiriman)),
+                    formatCurrency(parseShopeeCurrency(item.voucherShopee)),
+                    formatCurrency(parseShopeeCurrency(item.biayaLayanan)),
+                    formatCurrency(parseShopeeCurrency(item.totalPesanan)),
                     `"${order.URL}"`
                 ].join(CONFIG.CSV_DELIMITER) + '\n';
-                grandTotal += parseCurrency(item.totalPesanan);
+                grandTotal += parseShopeeCurrency(item.totalPesanan);
             });
         });
         // Add a summary row for Grand Total
@@ -1153,12 +1156,12 @@
                     order.Shop,
                     order['Order Date'],
                     item.name,
-                    item.subtotalProduk || '-',
-                    item.subtotalPengiriman || '-',
-                    item.diskonPengiriman || '-',
-                    item.voucherShopee || '-',
-                    item.biayaLayanan || '-',
-                    item.totalPesanan || '-',
+                    formatCurrency(parseShopeeCurrency(item.subtotalProduk)),
+                    formatCurrency(parseShopeeCurrency(item.subtotalPengiriman)),
+                    formatCurrency(parseShopeeCurrency(item.diskonPengiriman)),
+                    formatCurrency(parseShopeeCurrency(item.voucherShopee)),
+                    formatCurrency(parseShopeeCurrency(item.biayaLayanan)),
+                    formatCurrency(parseShopeeCurrency(item.totalPesanan)),
                     order.URL
                 ].join(' | ') + '\n';
             });
@@ -1356,14 +1359,14 @@
             // Calculate grand total
             const grandTotal = parsedData.reduce((sum, order) => {
                 return sum + order.items.reduce((itemSum, item) => {
-                    return itemSum + parseCurrency(item.totalPesanan);
+                    return itemSum + parseShopeeCurrency(item.totalPesanan);
                 }, 0);
             }, 0);
 
             // Calculate total savings
             const totalSavings = parsedData.reduce((sum, order) => {
                 return sum + order.items.reduce((itemSum, item) => {
-                    return itemSum + parseCurrency(item.diskonPengiriman) + parseCurrency(item.voucherShopee);
+                    return itemSum + parseShopeeCurrency(item.diskonPengiriman) + parseShopeeCurrency(item.voucherShopee);
                 }, 0);
             }, 0);
 
